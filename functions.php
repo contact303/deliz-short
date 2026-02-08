@@ -6,7 +6,7 @@
 if ( ! defined('ABSPATH') ) exit;
 
 define('DELIZ_SHORT_VERSION', '1.0.0');
-
+require 'helpers.php';
 require 'functions-front.php';
 
 // SMS LOGIN
