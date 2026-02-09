@@ -1,5 +1,8 @@
 <?php
 
+// Load Product Popup functionality
+require_once get_template_directory() . '/includes/product-popup/class-product-popup.php';
+
 add_action('rest_api_init', function () {
   register_rest_route('ed/v1', '/products', [
     'methods'  => WP_REST_Server::READABLE, // GET
@@ -87,6 +90,8 @@ add_action('wp_enqueue_scripts', function () {
 
   wp_enqueue_style('deliz-short-main', $css, [], time());
   wp_enqueue_script('deliz-short-main', $js, [], DELIZ_SHORT_VERSION, true);
+
+  // Product Popup functionality is loaded from includes/product-popup/class-product-popup.php
 });
 
 add_action('wp_enqueue_scripts', function () {
@@ -1224,6 +1229,8 @@ add_action('rest_api_init', function () {
   ]);
 });
 
+// Product Popup functionality is loaded from includes/product-popup/class-product-popup.php
+
 // woocommerce login|register form
 add_action( 'wp_footer', 'oc_menu_authorization_panel' );
 function oc_menu_authorization_panel(){
@@ -1317,3 +1324,5 @@ function print_menu_shortcode($atts, $content = null) {
     return wp_nav_menu( array( 'menu' => $name, 'echo' => false ) );
 }
 add_shortcode('oc_menu', 'print_menu_shortcode');
+
+// Product Popup functionality is loaded from includes/product-popup/class-product-popup.php
