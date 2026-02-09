@@ -421,10 +421,63 @@
     const isVariable = data.type === 'variable';
     
     let quantityHTML = '';
+    let toggleHTML = '';
+    
+    // Check if product can be sold both by units AND by weight
+    const canToggle = ocwsu.weighable && ocwsu.sold_by_units && ocwsu.sold_by_weight;
+    
+    // Generate toggle buttons if product can be sold both ways
+    if (canToggle) {
+      toggleHTML = `
+        <div class="ed-product-popup__quantity-toggle">
+          <button type="button" class="ed-product-popup__toggle-btn is-active" data-mode="units" aria-label="קנה לפי יחידות">
+            <span>יחידות</span>
+          </button>
+          <button type="button" class="ed-product-popup__toggle-btn" data-mode="weight" aria-label="קנה לפי משקל">
+            <span>משקל</span>
+          </button>
+        </div>
+      `;
+    }
     
     // Generate quantity input based on ocwsu settings
-    if (ocwsu.weighable && ocwsu.sold_by_units) {
-      // Units input
+    if (ocwsu.weighable && ocwsu.sold_by_units && ocwsu.sold_by_weight) {
+      // Product can be sold both ways - show toggle and default to units
+      const minWeight = ocwsu.min_weight || 0.5;
+      const step = ocwsu.weight_step || 0.1;
+      const unit = ocwsu.product_weight_units === 'kg' ? 'ק"ג' : 'גרם';
+      
+      quantityHTML = `
+        ${toggleHTML}
+        <!-- Units input (default, shown first) -->
+        <div class="ed-product-popup__quantity-input" data-quantity-mode="units" id="popup-quantity-units-container">
+          <button type="button" class="ed-product-popup__qty-btn" data-action="decrease">-</button>
+          <input type="number" 
+                 id="popup-quantity-units" 
+                 name="quantity" 
+                 value="1" 
+                 min="1" 
+                 step="1"
+                 class="ed-product-popup__qty-input">
+          <span class="ed-product-popup__qty-label">יחידות</span>
+          <button type="button" class="ed-product-popup__qty-btn" data-action="increase">+</button>
+        </div>
+        <!-- Weight input (hidden by default) -->
+        <div class="ed-product-popup__quantity-input" data-quantity-mode="weight" id="popup-quantity-weight-container" style="display: none;">
+          <button type="button" class="ed-product-popup__qty-btn" data-action="decrease" data-step="${step}">-</button>
+          <input type="number" 
+                 id="popup-quantity-weight" 
+                 name="quantity" 
+                 value="${minWeight}" 
+                 min="${minWeight}" 
+                 step="${step}"
+                 class="ed-product-popup__qty-input">
+          <span class="ed-product-popup__qty-label">${unit}</span>
+          <button type="button" class="ed-product-popup__qty-btn" data-action="increase" data-step="${step}">+</button>
+        </div>
+      `;
+    } else if (ocwsu.weighable && ocwsu.sold_by_units) {
+      // Units input only
       quantityHTML = `
         <div class="ed-product-popup__quantity-input">
           <button type="button" class="ed-product-popup__qty-btn" data-action="decrease">-</button>
@@ -440,7 +493,7 @@
         </div>
       `;
     } else if (ocwsu.weighable && ocwsu.sold_by_weight) {
-      // Weight input
+      // Weight input only
       const minWeight = ocwsu.min_weight || 0.5;
       const step = ocwsu.weight_step || 0.1;
       const unit = ocwsu.product_weight_units === 'kg' ? 'ק"ג' : 'גרם';
@@ -558,6 +611,42 @@
   function initQuantityInputs() {
     if (!popupElement) return;
     
+    // Toggle buttons for units/weight switching
+    const toggleButtons = popupElement.querySelectorAll('.ed-product-popup__toggle-btn');
+    toggleButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mode = this.dataset.mode;
+        if (!mode) return;
+        
+        // Update active state
+        toggleButtons.forEach(b => b.classList.remove('is-active'));
+        this.classList.add('is-active');
+        
+        // Show/hide appropriate quantity input
+        const unitsContainer = popupElement.querySelector('#popup-quantity-units-container');
+        const weightContainer = popupElement.querySelector('#popup-quantity-weight-container');
+        
+        if (mode === 'units') {
+          if (unitsContainer) unitsContainer.style.display = '';
+          if (weightContainer) weightContainer.style.display = 'none';
+          popupElement.dataset.quantityMode = 'units';
+        } else if (mode === 'weight') {
+          if (unitsContainer) unitsContainer.style.display = 'none';
+          if (weightContainer) weightContainer.style.display = '';
+          popupElement.dataset.quantityMode = 'weight';
+        }
+        
+        // Update ocwsu fields
+        updateOcwsuHiddenFields();
+        validateAddToCartButton();
+      });
+    });
+    
+    // Set initial mode
+    if (toggleButtons.length > 0) {
+      popupElement.dataset.quantityMode = 'units'; // Default to units
+    }
+    
     // Quantity buttons
     popupElement.querySelectorAll('.ed-product-popup__qty-btn').forEach(btn => {
       btn.addEventListener('click', function() {
@@ -579,13 +668,17 @@
         
         input.value = value;
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        updateOcwsuHiddenFields();
         validateAddToCartButton();
       });
     });
     
     // Quantity input changes
     popupElement.querySelectorAll('.ed-product-popup__qty-input').forEach(input => {
-      input.addEventListener('change', validateAddToCartButton);
+      input.addEventListener('change', function() {
+        updateOcwsuHiddenFields();
+        validateAddToCartButton();
+      });
     });
   }
 
@@ -764,27 +857,66 @@
     
     const ocwsu = popupData.ocwsu || {};
     
+    // Check if product can toggle between units and weight
+    const canToggle = ocwsu.weighable && ocwsu.sold_by_units && ocwsu.sold_by_weight;
+    const currentMode = popupElement.dataset.quantityMode || (ocwsu.sold_by_units ? 'units' : 'weight');
+    
     // Get selected unit weight
     const unitWeightRadio = popupElement.querySelector('input[name="popup_unit_weight"]:checked');
     const unitWeight = unitWeightRadio ? parseFloat(unitWeightRadio.value) : (ocwsu.unit_weight || 0);
     
-    // Get quantity
-    const qtyInput = popupElement.querySelector('#popup-quantity-units, #popup-quantity-weight, #popup-quantity');
-    const quantity = qtyInput ? parseFloat(qtyInput.value) : 1;
+    // Get quantity based on current mode
+    let qtyInput = null;
+    let quantity = 1;
+    let quantityInUnits = 0;
+    let quantityInWeightUnits = 0;
+    
+    if (canToggle) {
+      // Product can toggle - get quantity from active input
+      if (currentMode === 'units') {
+        qtyInput = popupElement.querySelector('#popup-quantity-units');
+        quantity = qtyInput ? parseFloat(qtyInput.value) : 1;
+        quantityInUnits = quantity;
+        quantityInWeightUnits = 0;
+      } else {
+        qtyInput = popupElement.querySelector('#popup-quantity-weight');
+        quantity = qtyInput ? parseFloat(qtyInput.value) : (ocwsu.min_weight || 0.5);
+        quantityInUnits = 0;
+        quantityInWeightUnits = quantity;
+      }
+    } else {
+      // Product has only one mode
+      qtyInput = popupElement.querySelector('#popup-quantity-units, #popup-quantity-weight, #popup-quantity');
+      quantity = qtyInput ? parseFloat(qtyInput.value) : 1;
+      
+      if (ocwsu.sold_by_units) {
+        quantityInUnits = quantity;
+        quantityInWeightUnits = 0;
+      } else if (ocwsu.sold_by_weight) {
+        quantityInUnits = 0;
+        quantityInWeightUnits = quantity;
+      }
+    }
     
     // Calculate quantity in kg
     let quantityInKg = quantity;
-    if (ocwsu.weighable && ocwsu.sold_by_units && unitWeight) {
+    if (canToggle && currentMode === 'units' && unitWeight) {
+      // Units mode: convert to kg
+      quantityInKg = quantity * unitWeight * (ocwsu.product_weight_units === 'kg' ? 1 : 0.001);
+    } else if (canToggle && currentMode === 'weight') {
+      // Weight mode: already in weight units, convert to kg
+      quantityInKg = quantity * (ocwsu.product_weight_units === 'kg' ? 1 : 0.001);
+    } else if (ocwsu.weighable && ocwsu.sold_by_units && unitWeight) {
       quantityInKg = quantity * unitWeight * (ocwsu.product_weight_units === 'kg' ? 1 : 0.001);
     } else if (ocwsu.weighable && ocwsu.sold_by_weight) {
       quantityInKg = quantity * (ocwsu.product_weight_units === 'kg' ? 1 : 0.001);
     }
     
     // Store in data attributes for add to cart
-    popupElement.dataset.ocwsuUnit = ocwsu.sold_by_units ? 'unit' : (ocwsu.product_weight_units || 'kg');
+    popupElement.dataset.ocwsuUnit = (canToggle && currentMode === 'units') || ocwsu.sold_by_units ? 'unit' : (ocwsu.product_weight_units || 'kg');
     popupElement.dataset.ocwsuUnitWeight = unitWeight || 0;
-    popupElement.dataset.ocwsuQuantityInUnits = ocwsu.sold_by_units ? quantity : 0;
-    popupElement.dataset.ocwsuQuantityInWeightUnits = ocwsu.sold_by_weight ? quantity : 0;
+    popupElement.dataset.ocwsuQuantityInUnits = quantityInUnits;
+    popupElement.dataset.ocwsuQuantityInWeightUnits = quantityInWeightUnits;
     popupElement.dataset.quantityInKg = quantityInKg;
   }
 
@@ -979,27 +1111,34 @@
       formData.append('wc_add_to_cart_nonce', window.wc_add_to_cart_params.wc_add_to_cart_nonce);
     }
     
-    // Quantity - get the actual input value
-    const qtyInput = popupElement.querySelector('#popup-quantity-units, #popup-quantity-weight, #popup-quantity');
-    const quantity = qtyInput ? parseFloat(qtyInput.value) : 1;
-    
-    // ocwsu fields - update before using
+    // ocwsu fields - update before using (must be called first)
     updateOcwsuHiddenFields();
     
+    // Check if product can toggle between units and weight
+    const canToggle = popupData.ocwsu?.weighable && popupData.ocwsu?.sold_by_units && popupData.ocwsu?.sold_by_weight;
+    const currentMode = popupElement.dataset.quantityMode || (popupData.ocwsu?.sold_by_units ? 'units' : 'weight');
+    
+    // Get quantity from active input based on mode
+    let qtyInput = null;
+    if (canToggle) {
+      // Get quantity from active input based on mode
+      qtyInput = currentMode === 'units' 
+        ? popupElement.querySelector('#popup-quantity-units')
+        : popupElement.querySelector('#popup-quantity-weight');
+    } else {
+      qtyInput = popupElement.querySelector('#popup-quantity-units, #popup-quantity-weight, #popup-quantity');
+    }
+    
+    const quantity = qtyInput ? parseFloat(qtyInput.value) : 1;
+    
     // For oc-woo-sale-units plugin, quantity should be in the base unit (kg for weighable products)
-    // But we need to check what the plugin expects
+    // Always use quantityInKg for weighable products (backend expects kg)
     const ocwsu = popupData.ocwsu || {};
     let quantityToSend = quantity;
     
-    if (ocwsu.weighable && ocwsu.sold_by_units) {
-      // If sold by units, convert to kg for the plugin
-      const unitWeight = parseFloat(popupElement.dataset.ocwsuUnitWeight) || 0;
-      if (unitWeight > 0) {
-        quantityToSend = quantity * unitWeight;
-      }
-    } else if (ocwsu.weighable && ocwsu.sold_by_weight) {
-      // If sold by weight, use the weight value directly
-      quantityToSend = quantity;
+    if (ocwsu.weighable) {
+      // For weighable products, always send quantity in kg
+      quantityToSend = parseFloat(popupElement.dataset.quantityInKg || quantity);
     }
     
     // Send quantity (WooCommerce expects this)
