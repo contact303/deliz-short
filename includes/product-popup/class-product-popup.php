@@ -268,6 +268,28 @@ class ED_Product_Popup {
           'attributes' => [],
         ];
         
+        // If get_weight_from_variation is enabled, include weight in variation data
+        if ($get_weight_from_variation && $weighable && $sold_by_units) {
+          $variation_weight = $variation->get_weight();
+          if ($variation_weight && $variation_weight > 0) {
+            // WooCommerce stores weight in kg
+            $weight_in_kg = (float) $variation_weight;
+            
+            // Convert to product weight units if needed
+            $is_kg = ($product_weight_units === 'kg' || $product_weight_units === 'Kg' || strpos(strtolower($product_weight_units), 'kg') !== false);
+            
+            if (!$is_kg || ($is_kg && $weight_in_kg < 1)) {
+              // Convert to grams
+              $weight_value = $weight_in_kg * 1000;
+            } else {
+              // Keep in kg
+              $weight_value = $weight_in_kg;
+            }
+            
+            $variation_data['weight'] = $weight_value;
+          }
+        }
+        
         foreach ($variation_attributes as $key => $value) {
           // Clean attribute key - remove 'attribute_pa_' or 'attribute_' prefix
           $clean_key = str_replace(['attribute_pa_', 'attribute_'], '', $key);

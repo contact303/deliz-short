@@ -5,7 +5,7 @@
 
 (function() {
   'use strict';
-
+ 
   let popupData = null; 
   let popupElement = null;  
   let isOpen = false;
@@ -532,8 +532,9 @@
     // Build options HTML
     let optionsHTML = '<div class="ed-product-popup__options">';
     
-    // Unit weight selection (if variable)
-    if (ocwsu.weighable && ocwsu.sold_by_units && ocwsu.unit_weight_type === 'variable' && ocwsu.unit_weight_options?.length) {
+    // Unit weight selection (if variable) - BUT NOT if get_weight_from_variation is enabled
+    // If get_weight_from_variation is enabled, we'll use the variation's weight directly
+    if (ocwsu.weighable && ocwsu.sold_by_units && ocwsu.unit_weight_type === 'variable' && ocwsu.unit_weight_options?.length && !ocwsu.get_weight_from_variation) {
       optionsHTML += '<div class="ed-product-popup__option-group"><label class="ed-product-popup__option-label">בחירת משקל ליחידה</label><div class="ed-product-popup__radio-group" data-option="unit_weight">';
       ocwsu.unit_weight_options.forEach((weight, idx) => {
         const showWeight = ocwsu.product_weight_units === 'kg' && weight < 1 ? weight * 1000 : weight;
@@ -841,12 +842,28 @@
       popupElement.dataset.variationId = matchingVariation.id;
       console.log('✅ Set variationId:', matchingVariation.id);
       
+      // If get_weight_from_variation is enabled, store the variation weight and update ocwsu fields
+      if (popupData.ocwsu?.get_weight_from_variation && matchingVariation.weight) {
+        popupElement.dataset.variationWeight = matchingVariation.weight;
+        console.log('✅ Set variationWeight:', matchingVariation.weight);
+        // Update ocwsu fields immediately when variation changes (to update unitWeight)
+        updateOcwsuHiddenFields();
+      }
+      
       // Update stock status
       if (!matchingVariation.in_stock) {
         const addBtn = popupElement.querySelector('#popup-add-to-cart');
         if (addBtn) {
           addBtn.disabled = true;
-          addBtn.textContent = 'לא במלאי';
+          const btnText = addBtn.querySelector('.ed-product-popup__add-btn-text');
+          if (btnText) btnText.textContent = 'אזל מהמלאי';
+        }
+      } else {
+        // Re-enable button if it was disabled
+        const addBtn = popupElement.querySelector('#popup-add-to-cart');
+        if (addBtn) {
+          addBtn.disabled = false;
+          validateAddToCartButton();
         }
       }
     } else {
@@ -857,6 +874,11 @@
         attributes: v.attributes
       })));
       popupElement.dataset.variationId = '';
+      // Clear variation weight if get_weight_from_variation is enabled
+      if (popupData.ocwsu?.get_weight_from_variation) {
+        delete popupElement.dataset.variationWeight;
+        updateOcwsuHiddenFields();
+      }
     }
     
     console.groupEnd();
@@ -875,8 +897,24 @@
     const currentMode = popupElement.dataset.quantityMode || (ocwsu.sold_by_units ? 'units' : 'weight');
     
     // Get selected unit weight
-    const unitWeightRadio = popupElement.querySelector('input[name="popup_unit_weight"]:checked');
-    const unitWeight = unitWeightRadio ? parseFloat(unitWeightRadio.value) : (ocwsu.unit_weight || 0);
+    let unitWeight = 0;
+    
+    // If get_weight_from_variation is enabled, get weight from selected variation
+    if (ocwsu.get_weight_from_variation && popupData.type === 'variable') {
+      const variationId = popupElement.dataset.variationId;
+      if (variationId) {
+        const variation = popupData.variations.find(v => v.id == variationId);
+        if (variation && variation.weight) {
+          // Variation weight is already in the correct units (from PHP)
+          unitWeight = parseFloat(variation.weight);
+          console.log('Using variation weight:', unitWeight, 'from variation:', variationId);
+        }
+      }
+    } else {
+      // Normal flow: get from radio button or default
+      const unitWeightRadio = popupElement.querySelector('input[name="popup_unit_weight"]:checked');
+      unitWeight = unitWeightRadio ? parseFloat(unitWeightRadio.value) : (ocwsu.unit_weight || 0);
+    }
     
     // Get quantity based on current mode
     let qtyInput = null;
