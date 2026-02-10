@@ -34,6 +34,23 @@ jQuery(function ($) {
     $('body').removeClass('basket-open');
   });
 
+
+	$(document).on( 'click', 'button.auth-btn', function(e){
+		let val 		= $(this).val();
+		let parent 	= $(this).closest( '#customer_login' );
+		let target;
+		// console.log( val, 'val' );
+		// console.log( parent, 'parent' );
+
+		if ( val == 'register' ){
+			parent.addClass( 'register-show' );
+			target = $('.authorization-panel--container .col-2');
+		} else {
+			target = $('.authorization-panel--container .col-1');
+			parent.removeClass( 'register-show' );
+		}
+	});
+
 });
 
 //mobile menu
@@ -140,3 +157,4 @@ jQuery(function ($) {
 jQuery('.site-footer .fmain .fcol-menu .title').click(function ($) {
 	jQuery(this).parent().toggleClass('active');
 });
+

@@ -176,7 +176,7 @@ class OC_SMS_Auth {
                     </button>
                 </div>
             </div>
-            <div class="subtitle or">או</div>
+            <div class="subtitle or">או התחברות עם סיסמא</div>
 
         </div>
         <?php
