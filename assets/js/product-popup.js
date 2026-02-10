@@ -343,11 +343,8 @@
       console.log('Popup Data:', popupData);
       console.log('ocwsu.weighable:', popupData.ocwsu?.weighable);
       
-      // Check if product is in stock - if not, show error and don't open popup
+      // Check if product is in stock - if not, don't open popup
       if (!popupData.in_stock) {
-        const productName = popupData.name || 'המוצר';
-        const errorMessage = `לא ניתן להוסיף את "${productName}" לסל הקניות - המוצר אזל מהמלאי.`;
-        alert(errorMessage);
         return;
       }
       

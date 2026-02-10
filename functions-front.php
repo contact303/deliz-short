@@ -377,7 +377,8 @@ add_shortcode('ed_menu_sidebar', function ($atts) {
 
 $config = [
   'endpoint'     => rest_url('ed/v1/products'),
-  'rebuyEndpoint' => rest_url('ed/v1/rebuy'),
+  //'rebuyEndpoint' => rest_url('ed/v1/rebuy'),
+  'rebuyViewEndpoint' => rest_url('ed/v1/rebuy-view'),
   'restNonce'     => wp_create_nonce('wp_rest'),
   'pageUrl'      => $page_url,
   'defaultSlug'  => $default_slug,
@@ -460,20 +461,32 @@ add_shortcode('ed_products_box', function ($atts) {
   </div>';
 });
 
-//טאבים של קניה אחרונה
+//קניה חוזרת
 add_action('rest_api_init', function () {
-  register_rest_route('ed/v1', '/rebuy', [
-    'methods'  => WP_REST_Server::READABLE, // GET
-    'callback' => 'ed_rest_rebuy',
-    'permission_callback' => function () {
-      return is_user_logged_in();
+  register_rest_route('ed/v1', '/rebuy-view', [
+    'methods'  => WP_REST_Server::READABLE,
+    'callback' => function () {
+      if (!is_user_logged_in()) {
+        return new WP_REST_Response(['html' => '<p>יש להתחבר כדי לצפות בהיסטוריית רכישה.</p>'], 401);
+      }
+
+      ob_start();
+
+      // ✅ include של הקובץ
+      $file = WP_CONTENT_DIR . '/themes/deliz-short/template-parts/product-history.php';
+      if (file_exists($file)) {
+        include $file;
+      } else {
+        echo '<p>קובץ תצוגה לא נמצא: ed-rebuy-view.php</p>';
+      }
+
+      $html = ob_get_clean();
+      return new WP_REST_Response(['html' => $html], 200);
     },
-    'args' => [
-      'mode'     => ['default' => 'all'], // all | last
-      'per_page' => ['default' => 12],
-    ],
+    'permission_callback' => '__return_true', // נבדוק login בתוך callback
   ]);
 });
+
 
 function ed_rest_rebuy(\WP_REST_Request $req) {
   $mode     = $req->get_param('mode') === 'last' ? 'last' : 'all';
@@ -587,16 +600,44 @@ function ed_menu_products_js_shared() {
 (function () {
   const cfg = window.ED_MENU_PRODUCTS;
   if (!cfg) return;
-
+ 
   const box   = document.querySelector(cfg.productsSelector);
   const title = document.querySelector(cfg.titleSelector);
   if (!box) return;
+
+  // Volt-like animation on products box: smooth fade/slide between results
+  if (!box.style.transition) {
+    box.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
+  }
+  if (!box.style.opacity) {
+    box.style.opacity = '1';
+  }
+  if (!box.style.transform) {
+    box.style.transform = 'translateY(0)';
+  }
 
   const links = () => Array.from(document.querySelectorAll(cfg.menuSelector));
   let controller = null;
   let current = null;
   let lastTerm = null;
   let beforeSearch = null;
+
+  function fadeOutBox() {
+    if (!box) return;
+    box.style.opacity = '0';
+    box.style.transform = 'translateY(10px)';
+  }
+
+  function fadeInBox() {
+    if (!box) return;
+    // Start from slightly lower opacity/position, then animate to visible
+    box.style.opacity = '0';
+    box.style.transform = 'translateY(10px)';
+    requestAnimationFrame(() => {
+      box.style.opacity = '1';
+      box.style.transform = 'translateY(0)';
+    });
+  }
 
   function getTermFromUrl() {
     const u = new URL(location.href);
@@ -630,12 +671,20 @@ function ed_menu_products_js_shared() {
 
 
   async function loadTerm(term, {push=false} = {}) {
+
+    if (term === 'rebuy') {
+      await loadRebuyFromPhp({ push });
+      return;
+    }  
     lastTerm = term;
     term = term || cfg.defaultSlug;
     if (!term || term === current) return;
 
     current = term;
     setActive(term);
+
+    // Fade out current products while loading new category
+    fadeOutBox();
 
     if (controller) controller.abort();
     controller = new AbortController();
@@ -664,6 +713,8 @@ function ed_menu_products_js_shared() {
       // html של מוצרים
       box.innerHTML = data.html || '';
       box.classList.remove('is-loading');
+      // Fade in newly loaded products
+      fadeInBox();
 
       // שם קטגוריה מדויק מהשרת
       if (data.term && data.term.name) setTitle(data.term.name);
@@ -686,13 +737,68 @@ function ed_menu_products_js_shared() {
     }
   }
 
+async function loadRebuyFromPhp({push=false} = {}) {
+  current = 'rebuy';
+  setActive('rebuy');
+  setTitle('קנייה חוזרת');
+  fadeOutBox();
+  box.classList.add('is-loading');
+
+  try {
+    if (!cfg.rebuyViewEndpoint) {
+      console.error('Missing cfg.rebuyViewEndpoint');
+      throw new Error('missing endpoint');
+    }
+
+    const reqUrl = new URL(cfg.rebuyViewEndpoint);
+
+    const res = await fetch(reqUrl.toString(), {
+      credentials: 'same-origin',
+      headers: {
+        'X-WP-Nonce': cfg.restNonce
+      }
+    });
+
+    const raw = await res.text(); // תמיד קוראים text כדי שלא ניתקע על JSON
+    if (!res.ok) {
+      console.error('rebuy-view failed', res.status, raw);
+      throw new Error('rebuy-view failed: ' + res.status);
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.error('rebuy-view non-json response', raw);
+      throw e;
+    }
+
+    box.innerHTML = (data && data.html) ? data.html : '<p>תוכן לא זמין.</p>';
+    box.classList.remove('is-loading');
+    fadeInBox();
+
+    if (push) {
+      const base = (cfg.catBase || '/cat/').replace(/\/+$/, '/');
+      const newUrl = new URL(base + 'rebuy' + '/', window.location.origin);
+      history.pushState({term: 'rebuy'}, '', newUrl.toString());
+    }
+  } catch (e) {
+    console.error('rebuy-view error', e);
+    box.classList.remove('is-loading');
+    box.innerHTML = '<p>שגיאה בטעינת קנייה חוזרת.</p>';
+  }
+}
+
+
+
   async function loadRebuy({push=false} = {}) {
   if (!cfg.rebuyEndpoint) return;
 
   current = 'rebuy';
   setActive('rebuy');
-  setTitle('קנייה חוזרת');
+  setTitle('הסטוריית הרכישה שלכם');
 
+  fadeOutBox();
   box.classList.add('is-loading');
 
   const makeTabs = () => {
@@ -731,6 +837,7 @@ function ed_menu_products_js_shared() {
     const data = await fetchMode('all');
     panel.innerHTML = data.html || '';
     box.classList.remove('is-loading');
+    fadeInBox();
 
     // ✅ Update cart fragments if provided
     if (data.fragments && typeof data.fragments === 'object') {
@@ -843,6 +950,7 @@ function ed_menu_products_js_shared() {
     if (controller) controller.abort();
     controller = new AbortController();
 
+    fadeOutBox();
     box.classList.add('is-loading');
 
     const url = new URL(cfg.searchEndpoint);
@@ -856,6 +964,7 @@ function ed_menu_products_js_shared() {
 
       box.innerHTML = data.html || '';
       box.classList.remove('is-loading');
+      fadeInBox();
 
       // ✅ Update cart fragments if provided
       if (data.fragments && typeof data.fragments === 'object') {
@@ -1515,3 +1624,24 @@ function oc_change_checkout_field( $field_value, $field_name ){
 	}
 	return $field_value;
 }
+
+add_action('woocommerce_before_shop_loop_item_title', function () {
+  global $product;
+
+  if ( ! $product instanceof WC_Product ) return;
+
+  // מציג רק כשהמוצר לא במלאי
+  if ( ! $product->is_in_stock() ) {
+    echo '<span class="badge-oos">זמנית אזל המלאי</span>';
+  }
+}, 10);
+
+// פותח wrapper לפני התמונה
+add_action('woocommerce_before_shop_loop_item_title', function () {
+  echo '<div class="loop-thumb-wrap">';
+}, 9);
+
+// סוגר wrapper אחרי התמונה (ה-thumbnail מודפס ב-10)
+add_action('woocommerce_before_shop_loop_item_title', function () {
+  echo '</div>';
+}, 11);
