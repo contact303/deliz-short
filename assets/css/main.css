@@ -393,6 +393,7 @@ body.desktop-per-row-5 .center-column .ed-mp-products-wrap .ed-mp__products ul.p
 
 .ed-float-cart__inner .ed-float-cart__header{
     text-align: center;
+    flex: 0 0 auto;
 }
 
 .ed-float-cart__inner .ed-float-cart__header .ed-float-cart__title{
@@ -413,6 +414,17 @@ body.desktop-per-row-5 .center-column .ed-mp-products-wrap .ed-mp__products ul.p
 .ed-float-cart__items{
     margin-block-start: 35px;
     padding-inline: 15px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ed-float-cart__inner{
+    height: 88vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .ed-float-cart__items .ed-float-cart__item{
@@ -449,12 +461,14 @@ body.desktop-per-row-5 .center-column .ed-mp-products-wrap .ed-mp__products ul.p
 .ed-float-cart__footer{
     padding: 15px;
     text-align: center;
+    flex: 0 0 auto;
 }
 
 .ed-float-cart__footer .bottom-cart{
     padding: 0 20px;
     text-align: center;
     margin-block-start: 25px;
+    padding-block-end: 30px;
 }
 
 .ed-float-cart__footer .bottom-cart .cart-custom-notice{
@@ -1479,6 +1493,10 @@ form.woocommerce-checkout .ocws-days-with-slots-list-label{
 
     .woocommerce ul.products li.product.outofstock .loop-thumb-wrap .badge-oos{
         font-size: 15px;
+    }
+
+    .ed-float-cart__inner{
+        height: 95vh;
     }
 }
 

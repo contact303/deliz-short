@@ -959,6 +959,7 @@ display: flex;
 
 .ed-product-popup__quantity-input.simple .ed-product-popup__qty-input{
   text-align: center;
+  padding-inline-start: 0;
 }
 
 

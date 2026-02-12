@@ -52,6 +52,16 @@ $cart = WC()->cart;
 
       </button>
 
+      <?php
+
+      if ( class_exists('Oc_Woo_Shipping_Public') && is_callable(['Oc_Woo_Shipping_Public', 'show_chip_in_cart']) ) {
+
+          Oc_Woo_Shipping_Public::show_chip_in_cart();
+
+      }
+
+      ?>        
+
     </header>
 
 
@@ -298,18 +308,6 @@ $cart = WC()->cart;
 
 
 
-      <?php
-
-      if ( class_exists('Oc_Woo_Shipping_Public') && is_callable(['Oc_Woo_Shipping_Public', 'show_chip_in_cart']) ) {
-
-          Oc_Woo_Shipping_Public::show_chip_in_cart();
-
-      }
-
-      ?>  
-
-
-
       <?php if ( $cart && ! $cart->is_empty() ) : ?>
 
         <div class="ed-float-cart__totals">
@@ -374,11 +372,12 @@ $cart = WC()->cart;
 
         </div>
 
-      <?php endif; ?>
 
       <div class="bottom-cart">
           <div class="cart-custom-notice"><?php _e('*The final price will be set after weighing.', 'deliz-short'); ?> <a href="javascript:void(0);"><?php _e('More Details', 'deliz-short'); ?></a></div>
-      </div>      
+      </div>           
+
+      <?php endif; ?>   
 
     </footer>
 
