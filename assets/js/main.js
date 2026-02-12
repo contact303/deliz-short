@@ -158,3 +158,53 @@ jQuery('.site-footer .fmain .fcol-menu .title').click(function ($) {
 	jQuery(this).parent().toggleClass('active');
 });
 
+//יוסט שאלות ותשובות
+(function () {
+  function initYoastFaqToggle() {
+    const questions = document.querySelectorAll('.schema-faq-question');
+    if (!questions.length) return;
+
+    questions.forEach((q) => {
+      if (q.dataset.faqInit === '1') return;
+      q.dataset.faqInit = '1';
+
+      // Yoast בדרך כלל עוטף כל Q/A בתוך .schema-faq-section
+      const section = q.closest('.schema-faq-section') || q.parentElement;
+      if (!section) return;
+
+      // התשובה יכולה להיות לא הסיבלינג הישיר, אז מחפשים בתוך ה-section
+      const answer = section.querySelector('.schema-faq-answer');
+      if (!answer) return;
+
+      // start closed
+      answer.style.display = 'none';
+
+      q.style.cursor = 'pointer';
+      q.setAttribute('role', 'button');
+      q.setAttribute('tabindex', '0');
+      q.setAttribute('aria-expanded', 'false');
+
+      const toggle = () => {
+        const isOpen = q.getAttribute('aria-expanded') === 'true';
+        q.setAttribute('aria-expanded', String(!isOpen));
+        answer.style.display = isOpen ? 'none' : '';
+      };
+
+      q.addEventListener('click', toggle);
+      q.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggle();
+        }
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initYoastFaqToggle);
+
+  // אם תוכן נטען דינמית (Elementor וכו')
+  new MutationObserver(initYoastFaqToggle).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+})();

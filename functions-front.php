@@ -1392,9 +1392,7 @@ function oc_menu_authorization_panel(){
               </svg>
             </button>
 
-            <div class="form-login">
-                <?php wc_get_template('myaccount/form-login.php');?>
-            </div>
+            <?php wc_get_template('myaccount/form-login.php');?>
             <div class="my-account-lost-password-form--container">
                 <?php
                 // Show lost password form by default.
@@ -1715,3 +1713,23 @@ function oc_user_save_account_data( $user_id ) {
         update_user_meta( $user_id, 'billing_last_name', sanitize_text_field( $_POST['user_last_name'] ) );
     }
 }
+
+// Remove "Downloads" from My Account menu (WooCommerce)
+add_filter('woocommerce_account_menu_items', function ($items) {
+    unset($items['downloads']); // removes "הורדות"
+    return $items;
+}, 99);
+
+
+add_filter('wpseo_breadcrumb_single_link', function ($link_output, $link) {
+    // Only change the Home crumb
+    if (!empty($link['url']) && $link['url'] === home_url('/')) {
+        $text = 'דף הבית'; // <- שנה למה שאתה רוצה
+        $link_output = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url($link['url']),
+            esc_html($text)
+        );
+    }
+    return $link_output;
+}, 10, 2);
