@@ -12,7 +12,7 @@
 
   'use strict';
 
-
+ 
 
   let popupData = null; 
 
@@ -3008,17 +3008,17 @@
 
     const image = popupElement.querySelector('#popup-product-image');
 
-    const cartBtn = document.querySelector('#ed-basket-toggle, .cart-contents');
+    const cartTarget = document.querySelector('.ed-float-cart__inner');
 
     
 
-    if (!image || !cartBtn) return;
+    if (!image || !cartTarget) return;
 
     
 
     const imageRect = image.getBoundingClientRect();
 
-    const cartRect = cartBtn.getBoundingClientRect();
+    const cartRect = cartTarget.getBoundingClientRect();
 
     
 
