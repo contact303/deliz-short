@@ -307,6 +307,22 @@ class ED_Product_Popup {
       $row_html = ob_get_clean();
       $fragments['div.ed-float-cart__row'] = $row_html;
     }
+
+    // Add cart count fragment for header update
+    $count = $cart ? (int) $cart->get_cart_contents_count() : 0;
+    if ($count > 0) {
+      ob_start();
+      ?>
+      <span class="ed-float-cart__count" aria-label="<?php esc_attr_e('כמות בסל', 'deliz-short'); ?>">
+          (<?php echo esc_html($count); ?>)
+      </span>
+      <?php
+      $count_html = ob_get_clean();
+      $fragments['span.ed-float-cart__count'] = $count_html;
+    } else {
+      // Empty cart - remove count
+      $fragments['span.ed-float-cart__count'] = '';
+    }
     
     return $fragments;
   }
