@@ -277,7 +277,7 @@ $count = $cart ? (int) $cart->get_cart_contents_count() : '';
 
 
 
-            $weight_unit  = 'ק\"ג';
+            $weight_unit  = 'ק"ג';
 
 
 
@@ -577,6 +577,8 @@ $count = $cart ? (int) $cart->get_cart_contents_count() : '';
 
                   echo '<div class="ed-float-cart__ocwsu-qty">' . esc_html( $ocwsu_display ) . '</div>';
 
+
+
                 }
 
                 // הודעות קידום מבצעים
@@ -631,10 +633,6 @@ $count = $cart ? (int) $cart->get_cart_contents_count() : '';
                 }
 
               ?>
-
-
-
-
 
 
 
