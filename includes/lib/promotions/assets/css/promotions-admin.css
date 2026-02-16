@@ -381,3 +381,65 @@
   }
 }
 
+/* Advanced Scheduling */
+.ed-advanced-scheduling-section {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.ed-weekdays-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ed-weekday-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ed-weekday-checkbox:hover {
+  border-color: #2271b1;
+  background: #f0f6fc;
+}
+
+.ed-weekday-checkbox input[type="checkbox"] {
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.ed-weekday-checkbox:has(input[type="checkbox"]:checked) {
+  border-color: #2271b1;
+  background: #f0f6fc;
+  font-weight: 600;
+}
+
+.ed-time-range-fields {
+  margin-top: 15px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+}
+
+.ed-time-range-fields input[type="time"] {
+  padding: 8px 12px;
+  border: 1px solid #8c8f94;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.ed-time-range-fields input[type="time"]:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+  outline: none;
+}
+

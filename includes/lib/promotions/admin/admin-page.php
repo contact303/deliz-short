@@ -19,9 +19,12 @@ $promotions = get_posts([
   'order' => 'DESC',
 ]);
 
-// Get promotion data if editing
+// Get promotion data if editing or duplicating
 $promotion_data = null;
-if ($promotion_id > 0 && $action === 'edit') {
+$is_editing = ($promotion_id > 0 && $action === 'edit');
+$is_duplicating = ($promotion_id > 0 && $action === 'duplicate');
+
+if ($promotion_id > 0 && ($is_editing || $is_duplicating)) {
   $promotion = get_post($promotion_id);
   if ($promotion && $promotion->post_type === ED_Promotions::POST_TYPE) {
     $target_type = get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'target_type', true);
@@ -37,8 +40,8 @@ if ($promotion_id > 0 && $action === 'edit') {
     }
     
     $promotion_data = [
-      'id' => $promotion_id,
-      'name' => $promotion->post_title,
+      'id' => $is_duplicating ? 0 : $promotion_id, // Reset ID for duplication
+      'name' => $is_duplicating ? $promotion->post_title . ' (עותק)' : $promotion->post_title,
       'type' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'type', true),
       'target_type' => $target_type,
       'target_id' => $target_id,
@@ -49,6 +52,10 @@ if ($promotion_id > 0 && $action === 'edit') {
       'start_date' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'start_date', true),
       'end_date' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'end_date', true),
       'has_end_date' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'has_end_date', true) === '1',
+      'repeat_type' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'repeat_type', true),
+      'repeat_days' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'repeat_days', true),
+      'time_start' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'time_start', true),
+      'time_end' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'time_end', true),
       'status' => get_post_meta($promotion_id, ED_Promotions::META_PREFIX . 'status', true),
     ];
   }
@@ -130,6 +137,9 @@ if ($promotion_id > 0 && $action === 'edit') {
                 <a href="<?php echo esc_url(admin_url('admin.php?page=ed-promotions&action=edit&promotion_id=' . $promotion->ID)); ?>" class="button button-small">
                   <?php esc_html_e('ערוך', 'deliz-short'); ?>
                 </a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=ed-promotions&action=duplicate&promotion_id=' . $promotion->ID)); ?>" class="button button-small">
+                  <?php esc_html_e('שכפל', 'deliz-short'); ?>
+                </a>
                 <button type="button" class="button button-small ed-toggle-status" data-promotion-id="<?php echo esc_attr($promotion->ID); ?>" data-current-status="<?php echo esc_attr($status); ?>">
                   <?php echo $status === 'disabled' ? esc_html__('הפעל', 'deliz-short') : esc_html__('השבת', 'deliz-short'); ?>
                 </button>
@@ -143,7 +153,7 @@ if ($promotion_id > 0 && $action === 'edit') {
       </tbody>
     </table>
     
-  <?php elseif ($action === 'new' || $action === 'edit'): ?>
+  <?php elseif ($action === 'new' || $action === 'edit' || $action === 'duplicate'): ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=ed-promotions')); ?>" class="page-title-action">
       <?php esc_html_e('חזור לרשימה', 'deliz-short'); ?>
     </a>
@@ -155,7 +165,7 @@ if ($promotion_id > 0 && $action === 'edit') {
         <input type="hidden" name="promotion_id" value="<?php echo esc_attr($promotion_data['id'] ?? 0); ?>">
         
         <!-- Step 1: Choose Promotion Type -->
-        <div class="ed-promotion-step" data-step="1">
+        <div class="ed-promotion-step" data-step="1" style="display: <?php echo $is_editing ? 'none' : 'block'; ?>;">
           <h2><?php esc_html_e('שלב 1: בחירת סוג המבצע', 'deliz-short'); ?></h2>
           
           <div class="ed-promotion-type-selector">
@@ -182,7 +192,7 @@ if ($promotion_id > 0 && $action === 'edit') {
         </div>
         
         <!-- Step 2: Promotion Settings -->
-        <div class="ed-promotion-step" data-step="2" style="display: none;">
+        <div class="ed-promotion-step" data-step="2" style="display: <?php echo $is_editing ? 'block' : 'none'; ?>;">
           <h2><?php esc_html_e('שלב 2: הגדרות המבצע', 'deliz-short'); ?></h2>
           
           <div class="ed-promotion-step-content">
@@ -323,7 +333,7 @@ if ($promotion_id > 0 && $action === 'edit') {
         </div>
         
         <!-- Step 3: Timing -->
-        <div class="ed-promotion-step" data-step="3" style="display: none;">
+        <div class="ed-promotion-step" data-step="3" style="display: <?php echo $is_editing ? 'block' : 'none'; ?>;">
           <h2><?php esc_html_e('שלב 3: תזמון המבצע', 'deliz-short'); ?></h2>
           
           <div class="ed-promotion-step-content">
@@ -348,6 +358,73 @@ if ($promotion_id > 0 && $action === 'edit') {
                 <span class="field-note"><?php esc_html_e('(מסתיים ב-23:59)', 'deliz-short'); ?></span>
               </label>
               <input type="text" id="end_date" name="end_date" class="ed-datepicker" value="<?php echo esc_attr($promotion_data['end_date'] ?? ''); ?>" readonly>
+            </div>
+            
+            <!-- Advanced Scheduling -->
+            <div class="ed-advanced-scheduling-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccd0d4;">
+              <h3 style="margin-top: 0;"><?php esc_html_e('תזמון מתקדם', 'deliz-short'); ?></h3>
+              
+              <!-- Repeat Type -->
+              <div class="ed-form-field">
+                <label for="repeat_type">
+                  <?php esc_html_e('מבצע חוזר', 'deliz-short'); ?>
+                </label>
+                <select id="repeat_type" name="repeat_type">
+                  <option value="none" <?php selected($promotion_data['repeat_type'] ?? 'none', 'none'); ?>><?php esc_html_e('לא חוזר', 'deliz-short'); ?></option>
+                  <option value="daily" <?php selected($promotion_data['repeat_type'] ?? '', 'daily'); ?>><?php esc_html_e('יומי', 'deliz-short'); ?></option>
+                  <option value="weekly" <?php selected($promotion_data['repeat_type'] ?? '', 'weekly'); ?>><?php esc_html_e('שבועי', 'deliz-short'); ?></option>
+                  <option value="monthly" <?php selected($promotion_data['repeat_type'] ?? '', 'monthly'); ?>><?php esc_html_e('חודשי', 'deliz-short'); ?></option>
+                  <option value="yearly" <?php selected($promotion_data['repeat_type'] ?? '', 'yearly'); ?>><?php esc_html_e('שנתי', 'deliz-short'); ?></option>
+                </select>
+                <p class="description"><?php esc_html_e('בחר אם המבצע חוזר על עצמו', 'deliz-short'); ?></p>
+              </div>
+              
+              <!-- Days of Week (for weekly) -->
+              <div class="ed-form-field ed-repeat-days-field" style="display: <?php echo ($promotion_data['repeat_type'] ?? '') === 'weekly' ? 'block' : 'none'; ?>;">
+                <label><?php esc_html_e('ימים בשבוע', 'deliz-short'); ?></label>
+                <div class="ed-weekdays-selector">
+                  <?php
+                  $weekdays = [
+                    0 => __('ראשון', 'deliz-short'),
+                    1 => __('שני', 'deliz-short'),
+                    2 => __('שלישי', 'deliz-short'),
+                    3 => __('רביעי', 'deliz-short'),
+                    4 => __('חמישי', 'deliz-short'),
+                    5 => __('שישי', 'deliz-short'),
+                    6 => __('שבת', 'deliz-short'),
+                  ];
+                  $selected_days = !empty($promotion_data['repeat_days']) ? (is_array($promotion_data['repeat_days']) ? $promotion_data['repeat_days'] : explode(',', $promotion_data['repeat_days'])) : [];
+                  foreach ($weekdays as $day_num => $day_name):
+                  ?>
+                    <label class="ed-weekday-checkbox">
+                      <input type="checkbox" name="repeat_days[]" value="<?php echo esc_attr($day_num); ?>" <?php checked(in_array($day_num, $selected_days)); ?>>
+                      <?php echo esc_html($day_name); ?>
+                    </label>
+                  <?php endforeach; ?>
+                </div>
+                <p class="description"><?php esc_html_e('בחר באילו ימים בשבוע המבצע פעיל (רק למבצע שבועי)', 'deliz-short'); ?></p>
+              </div>
+              
+              <!-- Time Range -->
+              <div class="ed-form-field">
+                <label>
+                  <input type="checkbox" id="has_time_range" name="has_time_range" <?php checked(!empty($promotion_data['time_start']) || !empty($promotion_data['time_end'])); ?>>
+                  <?php esc_html_e('הגבל לשעות מסוימות', 'deliz-short'); ?>
+                </label>
+              </div>
+              
+              <div class="ed-time-range-fields" style="display: <?php echo (!empty($promotion_data['time_start']) || !empty($promotion_data['time_end'])) ? 'block' : 'none'; ?>;">
+                <div class="ed-form-field" style="display: inline-block; margin-left: 15px;">
+                  <label for="time_start"><?php esc_html_e('שעת התחלה', 'deliz-short'); ?></label>
+                  <input type="time" id="time_start" name="time_start" value="<?php echo esc_attr($promotion_data['time_start'] ?? ''); ?>">
+                </div>
+                
+                <div class="ed-form-field" style="display: inline-block; margin-left: 15px;">
+                  <label for="time_end"><?php esc_html_e('שעת סיום', 'deliz-short'); ?></label>
+                  <input type="time" id="time_end" name="time_end" value="<?php echo esc_attr($promotion_data['time_end'] ?? ''); ?>">
+                </div>
+                <p class="description" style="clear: both; margin-top: 10px;"><?php esc_html_e('המבצע יהיה פעיל רק בשעות אלו', 'deliz-short'); ?></p>
+              </div>
             </div>
           </div>
           

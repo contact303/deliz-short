@@ -5,6 +5,16 @@
   let searchTimeout = null;
 
   $(document).ready(function() {
+    // Check if editing - if so, start at step 3 and show all steps
+    const promotionId = parseInt($('input[name="promotion_id"]').val()) || 0;
+    const isEditing = promotionId > 0 && window.location.search.indexOf('action=edit') !== -1;
+    
+    if (isEditing) {
+      currentStep = 3;
+      // Show all steps for editing
+      $('.ed-promotion-step').show();
+    }
+    
     initPromotionForm();
     initSearchFields();
     initDatePickers();
@@ -71,6 +81,26 @@
       }
     });
     
+    // Repeat type change
+    $('#repeat_type').on('change', function() {
+      const repeatType = $(this).val();
+      if (repeatType === 'weekly') {
+        $('.ed-repeat-days-field').show();
+      } else {
+        $('.ed-repeat-days-field').hide();
+      }
+    });
+    
+    // Time range checkbox
+    $('#has_time_range').on('change', function() {
+      if ($(this).is(':checked')) {
+        $('.ed-time-range-fields').show();
+      } else {
+        $('.ed-time-range-fields').hide();
+        $('#time_start, #time_end').val('');
+      }
+    });
+    
     // Update preview on field changes
     $('#promotion_name').on('input', function() {
       updatePreview();
@@ -79,6 +109,10 @@
     $('#discount_percent, #buy_kg, #pay_amount').on('input', function() {
       updatePreview();
     });
+    
+    // Trigger change on load for repeat type
+    $('#repeat_type').trigger('change');
+    $('#has_time_range').trigger('change');
   }
   
   /**
@@ -228,6 +262,12 @@
       targetId = parseInt($('#target_id_buy').val()) || 0;
     }
 
+    // Collect repeat days
+    const repeatDays = [];
+    $('input[name="repeat_days[]"]:checked').each(function() {
+      repeatDays.push(parseInt($(this).val()));
+    });
+
     const data = {
       promotion_id: parseInt($('input[name="promotion_id"]').val()) || 0,
       name: $('#promotion_name').val(),
@@ -240,6 +280,10 @@
       start_date: $('#start_date').val(),
       end_date: $('#end_date').val() || '',
       has_end_date: $('#has_end_date').is(':checked'),
+      repeat_type: $('#repeat_type').val() || 'none',
+      repeat_days: repeatDays,
+      time_start: $('#time_start').val() || '',
+      time_end: $('#time_end').val() || '',
       status: 'active',
     };
 
