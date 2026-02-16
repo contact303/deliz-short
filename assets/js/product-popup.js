@@ -910,8 +910,6 @@
 
       quantityHTML = `
 
-        ${toggleHTML}
-
         <!-- Units input (default, shown first) -->
 
         <div class="ed-product-popup__quantity-input" data-quantity-mode="units" id="popup-quantity-units-container">
@@ -924,7 +922,7 @@
 
                  id="popup-quantity-units" 
 
-                 name="quantity" 
+                 name="quantity"  
 
                  value="1" 
 
@@ -1214,13 +1212,15 @@
 
               ${optionsHTML}
 
+              ${noteHTML}
+
             </div>
 
             <div class="ed-product-popup__footer">
 
-              <div class="ed-product-popup__quantity" id="popup-quantity-container">${quantityHTML}</div>
+              ${toggleHTML}
 
-              ${noteHTML}
+              <div class="ed-product-popup__quantity" id="popup-quantity-container">${quantityHTML}</div>
 
               <button type="button" class="ed-product-popup__add-btn" id="popup-add-to-cart" data-product-id="${data.id}" ${!data.in_stock ? 'disabled' : (isVariable && attributes.length > 0 ? 'disabled' : '')}>
 
