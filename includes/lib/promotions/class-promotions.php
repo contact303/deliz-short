@@ -248,8 +248,8 @@ class ED_Promotions {
   public static function ajax_save_promotion() {
     check_ajax_referer('ed-promotions-nonce', 'nonce');
     
-    $promotion_id = intval($_POST['promotion_id'] ?? 0);
     $data = $_POST['data'] ?? [];
+    $promotion_id = intval($data['promotion_id'] ?? 0);
 
     // Validate required fields
     if (empty($data['name']) || empty($data['type'])) {
@@ -277,6 +277,11 @@ class ED_Promotions {
     }
 
     // Save meta fields
+    $repeat_days = [];
+    if (!empty($data['repeat_days']) && is_array($data['repeat_days'])) {
+      $repeat_days = array_map('intval', $data['repeat_days']);
+    }
+    
     $meta_fields = [
       'type' => sanitize_text_field($data['type']),
       'target_type' => sanitize_text_field($data['target_type'] ?? ''),
@@ -287,6 +292,10 @@ class ED_Promotions {
       'start_date' => sanitize_text_field($data['start_date'] ?? ''),
       'end_date' => sanitize_text_field($data['end_date'] ?? ''),
       'has_end_date' => !empty($data['has_end_date']) ? '1' : '0',
+      'repeat_type' => sanitize_text_field($data['repeat_type'] ?? 'none'),
+      'repeat_days' => !empty($repeat_days) ? implode(',', $repeat_days) : '',
+      'time_start' => sanitize_text_field($data['time_start'] ?? ''),
+      'time_end' => sanitize_text_field($data['time_end'] ?? ''),
       'status' => sanitize_text_field($data['status'] ?? 'active'),
     ];
 
@@ -344,21 +353,11 @@ class ED_Promotions {
 
   /**
    * Generate badge text from promotion data
+   * Returns the promotion name (post_title) as the badge text
    */
   public static function generate_badge_text($promotion_id) {
-    $type = get_post_meta($promotion_id, self::META_PREFIX . 'type', true);
-    $name = get_post($promotion_id)->post_title ?? '';
-
-    if ($type === 'discount') {
-      $discount = get_post_meta($promotion_id, self::META_PREFIX . 'discount_percent', true);
-      return sprintf('%s%% הנחה', $discount);
-    } elseif ($type === 'buy_x_pay_y') {
-      $buy_kg = get_post_meta($promotion_id, self::META_PREFIX . 'buy_kg', true);
-      $pay = get_post_meta($promotion_id, self::META_PREFIX . 'pay_amount', true);
-      return sprintf('%s ק"ג ב-%s ש"ח', $buy_kg, $pay);
-    }
-
-    return $name;
+    $post = get_post($promotion_id);
+    return $post ? $post->post_title : '';
   }
 
   /**
@@ -406,23 +405,99 @@ class ED_Promotions {
   }
 
   /**
-   * Check if promotion is active (date-wise)
+   * Check if promotion is active (date-wise, including advanced scheduling)
    */
   public static function is_promotion_active($promotion_id) {
     $start_date = get_post_meta($promotion_id, self::META_PREFIX . 'start_date', true);
     $end_date = get_post_meta($promotion_id, self::META_PREFIX . 'end_date', true);
     $has_end_date = get_post_meta($promotion_id, self::META_PREFIX . 'has_end_date', true) === '1';
+    $repeat_type = get_post_meta($promotion_id, self::META_PREFIX . 'repeat_type', true);
+    $repeat_days_str = get_post_meta($promotion_id, self::META_PREFIX . 'repeat_days', true);
+    $time_start = get_post_meta($promotion_id, self::META_PREFIX . 'time_start', true);
+    $time_end = get_post_meta($promotion_id, self::META_PREFIX . 'time_end', true);
 
-    $now = current_time('Y-m-d H:i:s');
+    // Use WordPress timezone for current time
+    $now = current_time('mysql'); // Gets time in WordPress timezone
+    $now_timestamp = strtotime($now);
+    $current_day_of_week = (int)date('w', $now_timestamp); // 0 = Sunday, 6 = Saturday
     
-    if ($start_date && strtotime($start_date) > strtotime($now)) {
-      return false; // Future promotion
+    // Check if promotion has started (for non-repeating promotions)
+    if ($repeat_type === 'none' || empty($repeat_type)) {
+      if ($start_date && strtotime($start_date . ' 00:00:00') > $now_timestamp) {
+        return false; // Future promotion
+      }
+
+      if ($has_end_date && $end_date) {
+        $end_datetime = $end_date . ' 23:59:59';
+        if (strtotime($end_datetime) < $now_timestamp) {
+          return false; // Ended promotion
+        }
+      }
+    } else {
+      // For repeating promotions, check if we're past the initial start date
+      if ($start_date && strtotime($start_date . ' 00:00:00') > $now_timestamp) {
+        return false; // Future promotion (hasn't started yet)
+      }
+
+      // Check end date (if set, promotion ends on this date regardless of repeat)
+      if ($has_end_date && $end_date) {
+        $end_datetime = $end_date . ' 23:59:59';
+        if (strtotime($end_datetime) < $now_timestamp) {
+          return false; // Ended promotion
+        }
+      }
+
+      // Check repeat type
+      if ($repeat_type === 'weekly') {
+        // Check if today is in the allowed days
+        $repeat_days = !empty($repeat_days_str) ? explode(',', $repeat_days_str) : [];
+        $repeat_days = array_map('intval', $repeat_days);
+        
+        if (!empty($repeat_days) && !in_array($current_day_of_week, $repeat_days)) {
+          return false; // Today is not in the allowed days
+        }
+      } elseif ($repeat_type === 'daily') {
+        // Daily - always active (if within date range)
+      } elseif ($repeat_type === 'monthly') {
+        // Monthly - check if today's day of month matches start date's day
+        if ($start_date) {
+          $start_day = (int)date('d', strtotime($start_date));
+          $current_day = (int)date('d', $now_timestamp);
+          if ($start_day !== $current_day) {
+            return false; // Not the same day of month
+          }
+        }
+      } elseif ($repeat_type === 'yearly') {
+        // Yearly - check if today's month and day match start date
+        if ($start_date) {
+          $start_month_day = date('m-d', strtotime($start_date));
+          $current_month_day = date('m-d', $now_timestamp);
+          if ($start_month_day !== $current_month_day) {
+            return false; // Not the same month and day
+          }
+        }
+      }
     }
 
-    if ($has_end_date && $end_date) {
-      $end_datetime = $end_date . ' 23:59:59';
-      if (strtotime($end_datetime) < strtotime($now)) {
-        return false; // Ended promotion
+    // Check time range (only if time is set)
+    if (!empty($time_start) || !empty($time_end)) {
+      // Convert times to comparable format (HH:MM)
+      $current_hour_min = (int)date('H', $now_timestamp) * 60 + (int)date('i', $now_timestamp);
+      
+      if (!empty($time_start)) {
+        list($start_h, $start_m) = explode(':', $time_start);
+        $start_hour_min = (int)$start_h * 60 + (int)$start_m;
+        if ($current_hour_min < $start_hour_min) {
+          return false; // Before start time
+        }
+      }
+      
+      if (!empty($time_end)) {
+        list($end_h, $end_m) = explode(':', $time_end);
+        $end_hour_min = (int)$end_h * 60 + (int)$end_m;
+        if ($current_hour_min > $end_hour_min) {
+          return false; // After end time
+        }
       }
     }
 

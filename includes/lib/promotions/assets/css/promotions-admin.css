@@ -1,7 +1,9 @@
-/* Promotions Admin Styles */
+/* Promotions Admin Styles - RTL Support */
 
 .ed-promotions-admin {
   max-width: 1200px;
+  direction: rtl;
+  text-align: right;
 }
 
 .ed-promotions-table {
@@ -45,7 +47,7 @@
 }
 
 .column-actions .button {
-  margin-right: 5px;
+  margin-left: 5px;
   margin-bottom: 5px;
 }
 
@@ -59,7 +61,7 @@
 }
 
 .ed-promotion-step {
-  max-width: 800px;
+  max-width: 100%;
 }
 
 .ed-promotion-step h2 {
@@ -121,6 +123,13 @@
   margin: 20px 0;
 }
 
+.ed-promotion-step-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 30px;
+  align-items: start;
+}
+
 .ed-form-field {
   margin-bottom: 20px;
 }
@@ -156,12 +165,12 @@
 }
 
 .ed-form-field .field-suffix {
-  margin-right: 5px;
+  margin-left: 5px;
   color: #646970;
 }
 
 .ed-form-field .field-label-after {
-  margin-right: 10px;
+  margin-left: 10px;
   color: #646970;
 }
 
@@ -214,6 +223,7 @@
   border-top: 1px solid #ccd0d4;
   display: flex;
   gap: 10px;
+  flex-direction: row-reverse; /* RTL: buttons order reversed */
 }
 
 .ed-promotion-form-actions .button {
@@ -232,14 +242,133 @@
 /* Date Picker */
 .ed-form-field .ed-datepicker {
   max-width: 200px;
-  margin-left: 10px;
-}
-
-.ed-form-field .ed-select-date {
   margin-right: 10px;
 }
 
+.ed-form-field .ed-select-date {
+  margin-left: 10px;
+}
+
+/* Preview Section */
+.ed-promotion-preview-section {
+  position: sticky;
+  top: 20px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ed-promotion-preview-section h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #1d2327;
+}
+
+.ed-promotion-preview-section .description {
+  margin: 0 0 20px 0;
+  color: #646970;
+  font-size: 13px;
+}
+
+.ed-promotion-preview-product {
+  background: #fff;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ed-preview-product-image {
+  position: relative;
+  width: 100%;
+  padding-top: 75%; /* 4:3 aspect ratio */
+  background: #f0f0f1;
+  overflow: hidden;
+}
+
+.ed-preview-product-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ed-preview-placeholder-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f1;
+}
+
+.ed-preview-placeholder-image .dashicons {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: #8c8f94;
+}
+
+.ed-preview-badge-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+}
+
+.ed-preview-badge {
+  display: inline-block;
+  background-color: #d63638;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  line-height: 1.4;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ed-preview-product-info {
+  padding: 15px;
+}
+
+.ed-preview-product-name {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2327;
+  line-height: 1.4;
+}
+
+.ed-preview-product-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2271b1;
+}
+
+.ed-preview-product-price .price {
+  color: #2271b1;
+}
+
 /* Responsive */
+@media (max-width: 1200px) {
+  .ed-promotion-step-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .ed-promotion-preview-section {
+    position: static;
+    margin-top: 30px;
+  }
+}
+
 @media (max-width: 782px) {
   .ed-promotion-type-selector {
     grid-template-columns: 1fr;
@@ -250,5 +379,67 @@
   .ed-form-field select {
     max-width: 100%;
   }
+}
+
+/* Advanced Scheduling */
+.ed-advanced-scheduling-section {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.ed-weekdays-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ed-weekday-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ed-weekday-checkbox:hover {
+  border-color: #2271b1;
+  background: #f0f6fc;
+}
+
+.ed-weekday-checkbox input[type="checkbox"] {
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.ed-weekday-checkbox:has(input[type="checkbox"]:checked) {
+  border-color: #2271b1;
+  background: #f0f6fc;
+  font-weight: 600;
+}
+
+.ed-time-range-fields {
+  margin-top: 15px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+}
+
+.ed-time-range-fields input[type="time"] {
+  padding: 8px 12px;
+  border: 1px solid #8c8f94;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.ed-time-range-fields input[type="time"]:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+  outline: none;
 }
 

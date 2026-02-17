@@ -16,10 +16,10 @@ require_once( 'inc/oc-sms-auth/class-oc-sms-auth.php' );
 require_once( 'includes/lib/checkout-upsells/class-checkout-upsells.php' );
 
 // Promotions
-//require_once( 'includes/lib/promotions/class-promotions.php' );
+require_once( 'includes/lib/promotions/class-promotions.php' );
 //
 add_action('after_setup_theme', function () {
-  // Translations
+    // Translations
   load_theme_textdomain('deliz-short', get_template_directory() . '/languages');
 
   // Basic supports

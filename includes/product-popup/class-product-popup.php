@@ -64,7 +64,7 @@ class ED_Product_Popup {
     
     $cart = WC()->cart;
     ob_start();
-
+ 
     if (!$cart || $cart->is_empty()) {
       echo '<div class="ed-float-cart__empty">';
       echo '<svg width="80" height="80" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">';
@@ -197,11 +197,11 @@ class ED_Product_Popup {
                 }
               }
               ?>
-              
+
               <div class="ed-float-cart__actions-row">
                 <div class="ed-float-cart__quantity-controls">
                   <button type="button" class="ed-float-cart__qty-btn ed-float-cart__qty-btn--decrease" data-cart-item-key="<?php echo esc_attr($cart_item_key); ?>" aria-label="<?php esc_attr_e('הפחת כמות', 'deliz-short'); ?>">-</button>
-                  <input type="number" class="ed-float-cart__qty-input" value="<?php echo esc_attr($qty); ?>" min="1" step="1" data-cart-item-key="<?php echo esc_attr($cart_item_key); ?>" aria-label="<?php esc_attr_e('כמות', 'deliz-short'); ?>">
+                  <input type="text" class="ed-float-cart__qty-input" value="<?php echo esc_attr($qty); ?>" min="1" step="1" data-cart-item-key="<?php echo esc_attr($cart_item_key); ?>" aria-label="<?php esc_attr_e('כמות', 'deliz-short'); ?>">
                   <button type="button" class="ed-float-cart__qty-btn ed-float-cart__qty-btn--increase" data-cart-item-key="<?php echo esc_attr($cart_item_key); ?>" aria-label="<?php esc_attr_e('הוסף כמות', 'deliz-short'); ?>">+</button>
                 </div>
                 <button type="button" class="ed-float-cart__edit-btn" data-cart-item-key="<?php echo esc_attr($cart_item_key); ?>" data-product-id="<?php echo esc_attr($product_id); ?>" data-variation-id="<?php echo esc_attr($variation_id); ?>" data-quantity="<?php echo esc_attr($quantity); ?>" data-variation="<?php echo $variation_attrs_json; ?>" data-product-note="<?php echo esc_attr($product_note); ?>" data-ocwsu-quantity-in-units="<?php echo esc_attr($ocwsu_quantity_in_units); ?>" data-ocwsu-quantity-in-weight-units="<?php echo esc_attr($ocwsu_quantity_in_weight_units); ?>" aria-label="<?php esc_attr_e('ערוך מוצר', 'deliz-short'); ?>"><?php esc_html_e('עריכה', 'deliz-short'); ?></button>
@@ -306,6 +306,22 @@ class ED_Product_Popup {
       <?php
       $row_html = ob_get_clean();
       $fragments['div.ed-float-cart__row'] = $row_html;
+    }
+
+    // Add cart count fragment for header update
+    $count = $cart ? (int) $cart->get_cart_contents_count() : 0;
+    if ($count > 0) {
+      ob_start();
+      ?>
+      <span class="ed-float-cart__count" aria-label="<?php esc_attr_e('כמות בסל', 'deliz-short'); ?>">
+          (<?php echo esc_html($count); ?>)
+      </span>
+      <?php
+      $count_html = ob_get_clean();
+      $fragments['span.ed-float-cart__count'] = $count_html;
+    } else {
+      // Empty cart - remove count
+      $fragments['span.ed-float-cart__count'] = '';
     }
     
     return $fragments;
@@ -631,16 +647,101 @@ class ED_Product_Popup {
       defined('DELIZ_SHORT_VERSION') ? DELIZ_SHORT_VERSION : '1.0.0'
     );
 
+    // Enqueue modular popup scripts in correct order
+    $version = defined('DELIZ_SHORT_VERSION') ? DELIZ_SHORT_VERSION : '1.0.0';
+    $base_path = get_template_directory_uri() . '/assets/js/';
+    
+    // 1. State management (no dependencies)
     wp_enqueue_script(
-      'deliz-short-product-popup',
-      get_template_directory_uri() . '/assets/js/product-popup.js',
-      ['jquery'],
-      defined('DELIZ_SHORT_VERSION') ? DELIZ_SHORT_VERSION : '1.0.0',
+      'deliz-short-product-popup-state',
+      $base_path . 'product-popup-state.js',
+      [],
+      $version,
+      true
+    );
+    
+    // 2. Render functions (depends on state)
+    wp_enqueue_script(
+      'deliz-short-product-popup-render',
+      $base_path . 'product-popup-render.js',
+      ['deliz-short-product-popup-state'],
+      $version,
+      true
+    );
+    
+    // 3. Quantity inputs (depends on state)
+    wp_enqueue_script(
+      'deliz-short-product-popup-quantity',
+      $base_path . 'product-popup-quantity.js',
+      ['deliz-short-product-popup-state'],
+      $version,
+      true
+    );
+    
+    // 4. OCWSU fields (depends on state, quantity)
+    wp_enqueue_script(
+      'deliz-short-product-popup-ocwsu',
+      $base_path . 'product-popup-ocwsu.js',
+      ['deliz-short-product-popup-state', 'deliz-short-product-popup-quantity'],
+      $version,
       true
     );
 
-    // Popup config
-    wp_localize_script('deliz-short-product-popup', 'ED_POPUP_CONFIG', [
+    // 5. Variations (depends on state, ocwsu)
+    wp_enqueue_script(
+      'deliz-short-product-popup-variations',
+      $base_path . 'product-popup-variations.js',
+      ['deliz-short-product-popup-state', 'deliz-short-product-popup-ocwsu'],
+      $version, 
+      true
+    );
+    
+    // 6. Events (depends on state)
+    wp_enqueue_script(
+      'deliz-short-product-popup-events',
+      $base_path . 'product-popup-events.js',
+      ['deliz-short-product-popup-state'],
+      $version,
+      true
+    );
+    
+    // 7. Core functions (must load before cart and mini-cart)
+    wp_enqueue_script(
+      'deliz-short-product-popup-core',
+      $base_path . 'product-popup-core.js',
+      [
+        'jquery',
+        'deliz-short-product-popup-state',
+        'deliz-short-product-popup-render',
+        'deliz-short-product-popup-quantity',
+        'deliz-short-product-popup-ocwsu',
+        'deliz-short-product-popup-variations',
+        'deliz-short-product-popup-events'
+      ],
+      $version,
+      true
+    );
+    
+    // 8. Cart functions (depends on state, ocwsu, variations, core)
+    wp_enqueue_script(
+      'deliz-short-product-popup-cart',
+      $base_path . 'product-popup-cart.js',
+      ['deliz-short-product-popup-state', 'deliz-short-product-popup-ocwsu', 'deliz-short-product-popup-variations', 'deliz-short-product-popup-core'],
+      $version,
+      true
+    );
+    
+    // 9. Mini cart (depends on state, core)
+    wp_enqueue_script(
+      'deliz-short-product-popup-mini-cart',
+      $base_path . 'product-popup-mini-cart.js',
+      ['deliz-short-product-popup-state', 'deliz-short-product-popup-core'],
+      $version,
+      true
+    );
+
+    // Popup config (localize to core script which initializes everything)
+    wp_localize_script('deliz-short-product-popup-core', 'ED_POPUP_CONFIG', [
       'endpoint' => rest_url('ed/v1/product-popup'),
       'addToCartUrl' => rest_url('ed/v1/add-to-cart'), // Use our custom endpoint for debugging
       'updateCartUrl' => rest_url('ed/v1/update-cart'),
